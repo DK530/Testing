@@ -1,47 +1,45 @@
-# Import required libraries
 import pandas as pd
-import numpy as np
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
-# Load the main data
-df_main = pd.read_excel("path_to_your_file.xlsx")
+# Load the main dataset
+df = pd.read_excel("Path_to_your_main_file.xlsx")
+df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
 
-# Load the seasonal data
-df_season = pd.read_excel("path_to_your_seasonal_file.xlsx")
+# Load the seasonality dataset
+df_season = pd.read_excel("Path_to_your_seasonality_file.xlsx")
+df_season['Date'] = pd.to_datetime(df_season['Date'], dayfirst=True)
 
-# Merge the main data with the seasonal data
-df = df_main.merge(df_season, on='Date')
+# Merge the main dataset with the seasonality dataset
+df = df.merge(df_season, on='Date', how='left')
+
+# Combine 'Date' and 'Hour' into a single datetime column
+df['Datetime'] = pd.to_datetime(df['Date']) + pd.to_timedelta(df['Hour'], unit='h')
 
 # Create dummy variables for the 'Season' categorical data
 df = pd.get_dummies(df, columns=["Season"])
 
-# Make sure that Date and Hour are combined into a single datetime column
-df['Datetime'] = pd.to_datetime(df['Date']) + pd.to_timedelta(df['Hour'], unit='h')
-
-# Set the datetime column as the index of the dataframe
+# Set 'Datetime' as the index
 df.set_index('Datetime', inplace=True)
 
-# Create a series with the target variable 'y'
-y = df['y']
+# Define the endogenous variable
+endog = df['Covers']
 
-# Create a dataframe with the exogenous variables
-exog = df.drop(['y', 'Date', 'Hour'], axis=1)
+# Define the exogenous variables
+exog = df.drop(['Covers', 'Date', 'Hour'], axis=1)
 
-# Split the data into training and test sets
-size = int(len(y) * 0.8)
-y_train, y_test = y[0:size], y[size:len(y)]
+# Split the data into training and testing sets (80/20 split)
+size = int(len(endog) * 0.8)
+train, test = endog[0:size], endog[size:len(endog)]
 exog_train, exog_test = exog[0:size], exog[size:len(exog)]
 
 # Fit a SARIMAX model
-model = SARIMAX(y_train, exog=exog_train, order=(1, 1, 1), seasonal_order=(1,1,0,12))
+model = SARIMAX(train, exog=exog_train, order=(1, 1, 1), seasonal_order=(1,1,0,24))
 model_fit = model.fit(disp=0)
 
 # Do prediction
-pred = model_fit.predict(start=len(y_train), end=len(y_train)+len(y_test)-1, exog=exog_test)
+start_index = len(train)
+end_index = start_index + len(test) - 1
+forecast = model_fit.predict(start=start_index, end=end_index, exog=exog_test)
 
-# Display the results
-pred_df = pd.DataFrame({
-    'Actual': y_test,
-    'Predicted': pred
-})
-print(pred_df)
+# Print the forecasted values
+print(forecast)

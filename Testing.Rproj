@@ -1,29 +1,31 @@
 import pandas as pd
 from statsmodels.tsa.statespace.sarimax import SARIMAX
-from sklearn.metrics import mean_squared_error
-from math import sqrt
 
 # Load the main data
-df = pd.read_excel("G:\FP&A\PLANNING\Labor Project\Project - Demetris\Dataset 1.0.xlsx")
+df = pd.read_excel('main_data.xlsx')
 
-# Load the seasonality data
-seasonality_df = pd.read_excel("G:\FP&A\PLANNING\Labor Project\Project - Demetris\Seasonality 1.0.xlsx")
+# Load the seasonal, events, and holiday data
+df_season_event = pd.read_excel('season_event_data.xlsx')
 
-# Merge seasonality data
-df = df.merge(seasonality_df, how='left', on='Date')
+# Since the seasonal data is on a daily basis, we set the Date as the index
+df_season_event.set_index('Date', inplace=True)
 
-# We need to make sure that the Date is the index of our dataframe for time series analysis
-df['Date'] = pd.to_datetime(df['Date'])
-df.set_index('Date', inplace=True)
+# Merge the two datasets. Since the second dataframe is indexed by date, it will fill all hours of the day with the same value
+df = df.join(df_season_event, on='Date')
 
-# Prepare exogenous variables
-exog = df[['Season', 'Is_Holiday', 'Special_Event']]
-exog = pd.get_dummies(exog, drop_first=True)  # one-hot encoding of categorical variables
+# Create dummy variables for categorical data
+df = pd.get_dummies(df, columns=["Season", "Special Events"])
 
-# Let's predict the 'Covers' column
-# Split the dataset into train and test sets
-size = int(len(df) * 0.7)
-train, test = df.Covers[0:size], df.Covers[size:len(df)]
+# Make sure that Date and Hour are combined into a single datetime column
+df['Datetime'] = pd.to_datetime(df['Date']) + pd.to_timedelta(df['Hour'], unit='h')
+df = df.set_index('Datetime')
+
+# Create train and test datasets
+size = int(len(df) * 0.7)  # 70% of the data will be for training
+train, test = df['Covers'][0:size], df['Covers'][size:len(df)]
+
+# Separate exogenous variables
+exog = df[df.columns.difference(['Covers'])]
 exog_train, exog_test = exog[0:size], exog[size:len(exog)]
 
 # Fit a SARIMAX model
@@ -31,10 +33,7 @@ model = SARIMAX(train, exog=exog_train, order=(1, 1, 1), seasonal_order=(1,1,0,1
 model_fit = model.fit(disp=0)
 
 # Do prediction
-start_index = len(train)
-end_index = start_index + len(test) - 1
-forecast = model_fit.predict(start=start_index, end=end_index, exog=exog_test)
+prediction = model_fit.predict(start=len(train), end=len(train)+len(test)-1, exog=exog_test)
 
-# Calculate RMSE
-rmse = sqrt(mean_squared_error(test, forecast))
-print('Test RMSE: %.3f' % rmse)
+# Print the prediction
+print(prediction)

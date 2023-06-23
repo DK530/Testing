@@ -12,8 +12,9 @@ df_season['Date'] = pd.to_datetime(df_season['Date'], dayfirst=True)
 # Merge the main dataset with the seasonality dataset
 df = df.merge(df_season, on='Date', how='left')
 
-# Combine 'Date' and 'Hour' into a single datetime column
-df['Datetime'] = pd.to_datetime(df['Date']) + pd.to_timedelta(df['Hour'], unit='h')
+# Convert 'Hour' to timedelta type and combine 'Date' and 'Hour' into a single datetime column
+df['Hour'] = pd.to_timedelta(df['Hour'])
+df['Datetime'] = df['Date'] + df['Hour']
 
 # Create dummy variables for the 'Season' categorical data
 df = pd.get_dummies(df, columns=["Season"])

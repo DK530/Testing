@@ -1,46 +1,4 @@
-import pandas as pd
-from statsmodels.tsa.statespace.sarimax import SARIMAX
-
-# Load the main dataset
-df = pd.read_excel("Path_to_your_main_file.xlsx")
-df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
-
-# Load the seasonality dataset
-df_season = pd.read_excel("Path_to_your_seasonality_file.xlsx")
-df_season['Date'] = pd.to_datetime(df_season['Date'], dayfirst=True)
-
-# Merge the main dataset with the seasonality dataset
-df = df.merge(df_season, on='Date', how='left')
-
-# Convert 'Hour' to timedelta type and combine 'Date' and 'Hour' into a single datetime column
-df['Hour'] = pd.to_timedelta(df['Hour'])
+df['Hour'] = df['Hour'].astype(str)
+df['Hour'] = df['Hour'].str.split(':').apply(lambda x: int(x[0]) + int(x[1])/60)
+df['Hour'] = pd.to_timedelta(df['Hour'], unit='h')
 df['Datetime'] = df['Date'] + df['Hour']
-
-# Create dummy variables for the 'Season' categorical data
-df = pd.get_dummies(df, columns=["Season"])
-
-# Set 'Datetime' as the index
-df.set_index('Datetime', inplace=True)
-
-# Define the endogenous variable
-endog = df['Covers']
-
-# Define the exogenous variables
-exog = df.drop(['Covers', 'Date', 'Hour'], axis=1)
-
-# Split the data into training and testing sets (80/20 split)
-size = int(len(endog) * 0.8)
-train, test = endog[0:size], endog[size:len(endog)]
-exog_train, exog_test = exog[0:size], exog[size:len(exog)]
-
-# Fit a SARIMAX model
-model = SARIMAX(train, exog=exog_train, order=(1, 1, 1), seasonal_order=(1,1,0,24))
-model_fit = model.fit(disp=0)
-
-# Do prediction
-start_index = len(train)
-end_index = start_index + len(test) - 1
-forecast = model_fit.predict(start=start_index, end=end_index, exog=exog_test)
-
-# Print the forecasted values
-print(forecast)

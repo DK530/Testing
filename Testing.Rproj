@@ -1,3 +1,44 @@
-print('This file was created within Rstudio')
+import pandas as pd
+from fbprophet import Prophet
 
-print('And now it lives in github')
+# Load the main data
+df = pd.read_excel("G:\FP&A\PLANNING\Labor Project\Project - Demetris\Dataset 1.0.xlsx")
+
+# Load the additional data with 'Season', 'Is_Holiday', etc.
+additional_df = pd.read_excel("G:\FP&A\PLANNING\Labor Project\Project - Demetris\Seasonality 1.0.xlsx")
+
+# Merge the dataframes based on 'Date' and 'Hour'
+df = pd.merge(df, additional_df, on=['Date', 'Hour'])
+
+# Preprocess the data
+df['Date'] = pd.to_datetime(df['Date']) + pd.to_timedelta(df['Hour'], unit='h')
+df = df.rename(columns={'Date': 'ds', 'Covers': 'y'})
+
+# Instantiate the model
+model = Prophet()
+
+# Add additional regressors
+if 'Season' in df.columns:
+    model.add_regressor('Season')
+if 'Is_Holiday' in df.columns:
+    model.add_regressor('Is_Holiday')
+if 'Special_Event' in df.columns:
+    model.add_regressor('Special_Event')
+
+# Fit the model
+model.fit(df)
+
+# Create a dataframe to hold the dates for future predictions
+future = model.make_future_dataframe(periods=90*24, freq='H')  # 'H' denotes hourly frequency
+
+# Add future known values of additional regressors
+future = future.merge(additional_df[['Date', 'Season', 'Is_Holiday', 'Special_Event']].rename(columns={'Date': 'ds'}), how='left', on='ds')
+
+# Make predictions
+forecast = model.predict(future)
+
+# Output predictions
+forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail()
+
+# Display results in tabular form
+print(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']])

@@ -1,44 +1,40 @@
 import pandas as pd
-from fbprophet import Prophet
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from sklearn.metrics import mean_squared_error
+from math import sqrt
 
 # Load the main data
 df = pd.read_excel("G:\FP&A\PLANNING\Labor Project\Project - Demetris\Dataset 1.0.xlsx")
 
-# Load the additional data with 'Season', 'Is_Holiday', etc.
-additional_df = pd.read_excel("G:\FP&A\PLANNING\Labor Project\Project - Demetris\Seasonality 1.0.xlsx")
+# Load the seasonality data
+seasonality_df = pd.read_excel("G:\FP&A\PLANNING\Labor Project\Project - Demetris\Seasonality 1.0.xlsx")
 
-# Merge the dataframes based on 'Date' and 'Hour'
-df = pd.merge(df, additional_df, on=['Date', 'Hour'])
+# Merge seasonality data
+df = df.merge(seasonality_df, how='left', on='Date')
 
-# Preprocess the data
-df['Date'] = pd.to_datetime(df['Date']) + pd.to_timedelta(df['Hour'], unit='h')
-df = df.rename(columns={'Date': 'ds', 'Covers': 'y'})
+# We need to make sure that the Date is the index of our dataframe for time series analysis
+df['Date'] = pd.to_datetime(df['Date'])
+df.set_index('Date', inplace=True)
 
-# Instantiate the model
-model = Prophet()
+# Prepare exogenous variables
+exog = df[['Season', 'Is_Holiday', 'Special_Event']]
+exog = pd.get_dummies(exog, drop_first=True)  # one-hot encoding of categorical variables
 
-# Add additional regressors
-if 'Season' in df.columns:
-    model.add_regressor('Season')
-if 'Is_Holiday' in df.columns:
-    model.add_regressor('Is_Holiday')
-if 'Special_Event' in df.columns:
-    model.add_regressor('Special_Event')
+# Let's predict the 'Covers' column
+# Split the dataset into train and test sets
+size = int(len(df) * 0.7)
+train, test = df.Covers[0:size], df.Covers[size:len(df)]
+exog_train, exog_test = exog[0:size], exog[size:len(exog)]
 
-# Fit the model
-model.fit(df)
+# Fit a SARIMAX model
+model = SARIMAX(train, exog=exog_train, order=(1, 1, 1), seasonal_order=(1,1,0,12))
+model_fit = model.fit(disp=0)
 
-# Create a dataframe to hold the dates for future predictions
-future = model.make_future_dataframe(periods=90*24, freq='H')  # 'H' denotes hourly frequency
+# Do prediction
+start_index = len(train)
+end_index = start_index + len(test) - 1
+forecast = model_fit.predict(start=start_index, end=end_index, exog=exog_test)
 
-# Add future known values of additional regressors
-future = future.merge(additional_df[['Date', 'Season', 'Is_Holiday', 'Special_Event']].rename(columns={'Date': 'ds'}), how='left', on='ds')
-
-# Make predictions
-forecast = model.predict(future)
-
-# Output predictions
-forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail()
-
-# Display results in tabular form
-print(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']])
+# Calculate RMSE
+rmse = sqrt(mean_squared_error(test, forecast))
+print('Test RMSE: %.3f' % rmse)

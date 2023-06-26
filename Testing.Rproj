@@ -1,48 +1,136 @@
-import pandas as pd
-from statsmodels.tsa.statespace.sarimax import SARIMAX
-from datetime import datetime, timedelta
+       Date Outlet        Type   Location  Seating Capacity  \
+0 2023-08-01   Olea  Restaurant  Floor Adj              80.0   
+1 2023-08-01   Olea  Restaurant  Floor Adj              80.0   
+2 2023-08-01   Olea  Restaurant  Floor Adj              80.0   
+3 2023-08-01   Olea  Restaurant  Floor Adj              80.0   
+4 2023-08-01   Olea  Restaurant  Floor Adj              80.0   
 
-# Load your data
-df = pd.read_excel('your_data_file.xlsx')  # Replace 'your_data_file.xlsx' with your actual file path
+  Operating Hour Start Operating Hour End      Hour  Covers Staff Position  \
+0             11:00:00           23:00:00  11:00:00    53.0  Watting Staff   
+1             11:00:00           23:00:00  12:00:00    49.0  Watting Staff   
+2             11:00:00           23:00:00  13:00:00    55.0  Watting Staff   
+3             11:00:00           23:00:00  14:00:00    41.0  Watting Staff   
+4             11:00:00           23:00:00  15:00:00    48.0  Watting Staff   
 
-# Convert 'Date' and 'Hour' into datetime
-df['Date'] = pd.to_datetime(df['Date'])
-df['Hour'] = pd.to_datetime(df['Hour'], format='%H:%M:%S').dt.time
+   ...  Staff Count is_Holiday  Special_Event  Unnamed: 16  Unnamed: 17  \
+0  ...          2.0          1              0          NaN          NaN   
+1  ...          1.0          1              0          NaN          NaN   
+2  ...          5.0          1              0          NaN          NaN   
+3  ...          2.0          1              0          NaN          NaN   
+4  ...          3.0          1              0          NaN          NaN   
 
-# Combine 'Date' and 'Hour' into a single datetime column
-df['Datetime'] = df.apply(lambda row: datetime.combine(row['Date'], row['Hour']), axis=1)
+   Unnamed: 18  Unnamed: 19 Unnamed: 20            Datetime  Season_Summer  
+0          NaN          NaN         NaN 2023-08-01 11:00:00              1  
+1          NaN          NaN         NaN 2023-08-01 12:00:00              1  
+2       Summer            1         0.0 2023-08-01 13:00:00              1  
+3          NaN          NaN         NaN 2023-08-01 14:00:00              1  
+4          NaN          NaN         NaN 2023-08-01 15:00:00              1  
 
-# Set 'Datetime' as index
-df.set_index('Datetime', inplace=True)
+[5 rows x 22 columns]
+---------------------------------------------------------------------------
+ValueError                                Traceback (most recent call last)
+Cell In[5], line 32
+     29 df_test = df.loc[~mask]
+     31 # Fit a SARIMAX model
+---> 32 model = SARIMAX(df_train['Covers'], 
+     33                 exog=df_train[['is_Holiday', 'Special_Event'] + [col for col in df.columns if 'Season' in col]],
+     34                 order=(1, 0, 0), 
+     35                 seasonal_order=(1, 0, 0, 12),
+     36                 freq='H')
+     38 results = model.fit()
+     40 # Make predictions
 
-# Choose relevant columns
-df = df[['Covers', 'Season', 'is_Holiday', 'Special_Event']]
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\tsa\statespace\sarimax.py:328, in SARIMAX.__init__(self, endog, exog, order, seasonal_order, trend, measurement_error, time_varying_regression, mle_regression, simple_differencing, enforce_stationarity, enforce_invertibility, hamilton_representation, concentrate_scale, trend_offset, use_exact_diffuse, dates, freq, missing, validate_specification, **kwargs)
+    318 def __init__(self, endog, exog=None, order=(1, 0, 0),
+    319              seasonal_order=(0, 0, 0, 0), trend=None,
+    320              measurement_error=False, time_varying_regression=False,
+   (...)
+    325              freq=None, missing='none', validate_specification=True,
+    326              **kwargs):
+--> 328     self._spec = SARIMAXSpecification(
+    329         endog, exog=exog, order=order, seasonal_order=seasonal_order,
+    330         trend=trend, enforce_stationarity=None, enforce_invertibility=None,
+    331         concentrate_scale=concentrate_scale, dates=dates, freq=freq,
+    332         missing=missing, validate_specification=validate_specification)
+    333     self._params = SARIMAXParams(self._spec)
+    335     # Save given orders
 
-# Create dummy variables for the 'Season' categorical data
-df = pd.get_dummies(df, columns=["Season"], prefix=["Season"])
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\tsa\arima\specification.py:446, in SARIMAXSpecification.__init__(self, endog, exog, order, seasonal_order, ar_order, diff, ma_order, seasonal_ar_order, seasonal_diff, seasonal_ma_order, seasonal_periods, trend, enforce_stationarity, enforce_invertibility, concentrate_scale, trend_offset, dates, freq, missing, validate_specification)
+    441         exog = np.c_[trend_data, exog]
+    443 # Create an underlying time series model, to handle endog / exog,
+    444 # especially validating shapes, retrieving names, and potentially
+    445 # providing us with a time series index
+--> 446 self._model = TimeSeriesModel(endog, exog=exog, dates=dates, freq=freq,
+    447                               missing=missing)
+    448 self.endog = None if faux_endog else self._model.endog
+    449 self.exog = self._model.exog
 
-# Fit the model
-model = SARIMAX(df['Covers'], exog=df.drop('Covers', axis=1), order=(1, 0, 1), seasonal_order=(1, 0, 1, 12))
-model_fit = model.fit(disp=False)
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\tsa\base\tsa_model.py:468, in TimeSeriesModel.__init__(self, endog, exog, dates, freq, missing, **kwargs)
+    465 def __init__(
+    466     self, endog, exog=None, dates=None, freq=None, missing="none", **kwargs
+    467 ):
+--> 468     super().__init__(endog, exog, missing=missing, **kwargs)
+    470     # Date handling in indexes
+    471     self._init_dates(dates, freq)
 
-# Now load the future data
-future_df = pd.read_excel('future_data_file.xlsx')  # Replace 'future_data_file.xlsx' with your actual file path
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\base\model.py:267, in LikelihoodModel.__init__(self, endog, exog, **kwargs)
+    266 def __init__(self, endog, exog=None, **kwargs):
+--> 267     super().__init__(endog, exog, **kwargs)
+    268     self.initialize()
 
-# Convert 'Date' and 'Hour' into datetime
-future_df['Date'] = pd.to_datetime(future_df['Date'])
-future_df['Hour'] = pd.to_datetime(future_df['Hour'], format='%H:%M:%S').dt.time
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\base\model.py:92, in Model.__init__(self, endog, exog, **kwargs)
+     90 missing = kwargs.pop('missing', 'none')
+     91 hasconst = kwargs.pop('hasconst', None)
+---> 92 self.data = self._handle_data(endog, exog, missing, hasconst,
+     93                               **kwargs)
+     94 self.k_constant = self.data.k_constant
+     95 self.exog = self.data.exog
 
-# Combine 'Date' and 'Hour' into a single datetime column
-future_df['Datetime'] = future_df.apply(lambda row: datetime.combine(row['Date'], row['Hour']), axis=1)
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\base\model.py:132, in Model._handle_data(self, endog, exog, missing, hasconst, **kwargs)
+    131 def _handle_data(self, endog, exog, missing, hasconst, **kwargs):
+--> 132     data = handle_data(endog, exog, missing, hasconst, **kwargs)
+    133     # kwargs arrays could have changed, easier to just attach here
+    134     for key in kwargs:
 
-# Set 'Datetime' as index
-future_df.set_index('Datetime', inplace=True)
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\base\data.py:700, in handle_data(endog, exog, missing, hasconst, **kwargs)
+    697     exog = np.asarray(exog)
+    699 klass = handle_data_class_factory(endog, exog)
+--> 700 return klass(endog, exog=exog, missing=missing, hasconst=hasconst,
+    701              **kwargs)
 
-# Choose relevant columns and create dummy variables
-future_df = future_df[['Season', 'is_Holiday', 'Special_Event']]
-future_df = pd.get_dummies(future_df, columns=["Season"], prefix=["Season"])
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\base\data.py:88, in ModelData.__init__(self, endog, exog, missing, hasconst, **kwargs)
+     86 self.const_idx = None
+     87 self.k_constant = 0
+---> 88 self._handle_constant(hasconst)
+     89 self._check_integrity()
+     90 self._cache = {}
 
-# Generate 90 days predictions
-predictions = model_fit.get_forecast(steps=90, exog=future_df).predicted_mean
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\base\data.py:132, in ModelData._handle_constant(self, hasconst)
+    129 else:
+    130     # detect where the constant is
+    131     check_implicit = False
+--> 132     exog_max = np.max(self.exog, axis=0)
+    133     if not np.isfinite(exog_max).all():
+    134         raise MissingDataError('exog contains inf or nans')
 
-print(predictions)
+File <__array_function__ internals>:180, in amax(*args, **kwargs)
+
+File ~\AppData\Local\anaconda3\lib\site-packages\numpy\core\fromnumeric.py:2793, in amax(a, axis, out, keepdims, initial, where)
+   2677 @array_function_dispatch(_amax_dispatcher)
+   2678 def amax(a, axis=None, out=None, keepdims=np._NoValue, initial=np._NoValue,
+   2679          where=np._NoValue):
+   2680     """
+   2681     Return the maximum of an array or maximum along an axis.
+   2682 
+   (...)
+   2791     5
+   2792     """
+-> 2793     return _wrapreduction(a, np.maximum, 'max', axis, None, out,
+   2794                           keepdims=keepdims, initial=initial, where=where)
+
+File ~\AppData\Local\anaconda3\lib\site-packages\numpy\core\fromnumeric.py:86, in _wrapreduction(obj, ufunc, method, axis, dtype, out, **kwargs)
+     83         else:
+     84             return reduction(axis=axis, out=out, **passkwargs)
+---> 86 return ufunc.reduce(obj, axis, dtype, out, **passkwargs)
+
+ValueError: zero-size array to reduction operation maximum which has no identity

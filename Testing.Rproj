@@ -1,55 +1,51 @@
-# Import necessary libraries
 import pandas as pd
-import numpy as np
 from statsmodels.tsa.statespace.sarimax import SARIMAX
-from datetime import timedelta
+from sklearn.preprocessing import LabelEncoder
 
-# Load data into DataFrame
-# Assuming df is your DataFrame, skip this step if df is already defined
+# Read dataset
+df = pd.read_csv('covers.csv')
 
-# Convert columns to appropriate data types
+# Convert 'Datetime' to datetime object
 df['Datetime'] = pd.to_datetime(df['Datetime'])
-df['is_Holiday'] = df['is_Holiday'].astype('int')
-df['Special_Event'] = df['Special_Event'].astype('int')
-df['Season_Spring'] = df['Datetime'].apply(lambda x: 1 if x.month in [3, 4, 5] else 0)
-df['Season_Summer'] = df['Datetime'].apply(lambda x: 1 if x.month in [6, 7, 8] else 0)
-df['Season_Autumn'] = df['Datetime'].apply(lambda x: 1 if x.month in [9, 10, 11] else 0)
-df['Season_Winter'] = df['Datetime'].apply(lambda x: 1 if x.month in [12, 1, 2] else 0)
 
-# Create a mask for the training set
-mask = df['Datetime'] < df['Datetime'].max() - timedelta(days=90)
+# Set 'Datetime' as the index
+df.set_index('Datetime', inplace=True)
 
-# Create training and test sets
+# Define the categorical columns
+cat_cols = ['is_Holiday', 'Special_Event', 'Season']
+
+# Apply Label Encoding for the categorical variables
+for col in cat_cols:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col])
+
+# Generate dummy variables for 'Season'
+df = pd.get_dummies(df, columns=['Season'], prefix='Season')
+
+# Train-Test Split: Train on first 80%, predict on last 20%
+mask = (df.index < df.index.quantile(0.8))
 df_train = df.loc[mask]
 df_test = df.loc[~mask]
 
 # Fit a SARIMAX model
 model = SARIMAX(df_train['Covers'], 
-                exog=df_train[['is_Holiday', 'Special_Event', 'Season_Spring', 'Season_Summer', 'Season_Autumn', 'Season_Winter']],
-                order=(1, 0, 0), 
-                seasonal_order=(1, 0, 0, 12),
-                freq='H')
-
+       exog=df_train[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']],
+       order=(1, 0, 0), 
+       seasonal_order=(1, 0, 0, 12),
+       freq='H')
 results = model.fit()
 
 # Make future dataframe for prediction
-df_future = pd.DataFrame({'Datetime': pd.date_range(start=df_train['Datetime'].max(), periods=90*13, freq='H')})
-df_future['is_Holiday'] = 0  # assuming no holidays
-df_future['Special_Event'] = 0  # assuming no special events
-df_future['Season_Spring'] = df_future['Datetime'].apply(lambda x: 1 if x.month in [3, 4, 5] else 0)
-df_future['Season_Summer'] = df_future['Datetime'].apply(lambda x: 1 if x.month in [6, 7, 8] else 0)
-df_future['Season_Autumn'] = df_future['Datetime'].apply(lambda x: 1 if x.month in [9, 10, 11] else 0)
-df_future['Season_Winter'] = df_future['Datetime'].apply(lambda x: 1 if x.month in [12, 1, 2] else 0)
+future_dates = pd.date_range(start=df_test.index[0], end=df_test.index[-1], freq='H')
+df_pred = pd.DataFrame(index=future_dates)
+df_pred.index.name = 'Datetime'
 
-# Do the prediction
-pred = results.get_prediction(start=pd.to_datetime(df_future['Datetime'].min()), 
-                              end=pd.to_datetime(df_future['Datetime'].max()), 
-                              exog=df_future[['is_Holiday', 'Special_Event', 'Season_Spring', 'Season_Summer', 'Season_Autumn', 'Season_Winter']], 
-                              dynamic=True)
+# Fill the exogenous variable columns with appropriate values
+for col in ['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']:
+    if col in df_test.columns:
+        df_pred[col] = df_test[col]
+    else:
+        df_pred[col] = 0
 
-# Convert the prediction to a DataFrame
-df_pred = pd.DataFrame({'Covers': pred.predicted_mean})
-df_pred['Datetime'] = df_future['Datetime']
-
-# Filter df_pred to be between 11am and 11pm
-df_pred = df_pred[(df_pred['Datetime'].dt.hour >= 11) & (df_pred['Datetime'].dt.hour <= 23)]
+# Predict the covers
+df_pred['Covers'] = results.predict(start=df_pred.index[0], end=df_pred.index[-1], exog=df_pred[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']])

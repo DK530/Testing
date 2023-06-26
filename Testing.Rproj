@@ -1,10 +1,34 @@
 ---------------------------------------------------------------------------
-AttributeError                            Traceback (most recent call last)
-Cell In[17], line 30
-     27 df = pd.get_dummies(df, columns=['Season'], prefix='Season')
-     29 # Train-Test Split: Train on first 80%, predict on last 20%
----> 30 mask = (df.index < df.index.quantile(0.8))
-     31 df_train = df.loc[mask]
-     32 df_test = df.loc[~mask]
+KeyError                                  Traceback (most recent call last)
+Cell In[20], line 35
+     31 df_train, df_test=df.iloc[:train_size],df.iloc[train_size:]
+     33 # Fit a SARIMAX model
+     34 model = SARIMAX(df_train['Covers'], 
+---> 35        exog=df_train[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']],
+     36        order=(1, 0, 0), 
+     37        seasonal_order=(1, 0, 0, 12),
+     38        freq='H')
+     39 results = model.fit()
+     41 # Make future dataframe for prediction
 
-AttributeError: 'DatetimeIndex' object has no attribute 'quantile'
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\frame.py:3813, in DataFrame.__getitem__(self, key)
+   3811     if is_iterator(key):
+   3812         key = list(key)
+-> 3813     indexer = self.columns._get_indexer_strict(key, "columns")[1]
+   3815 # take() does not accept boolean indexers
+   3816 if getattr(indexer, "dtype", None) == bool:
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\indexes\base.py:6070, in Index._get_indexer_strict(self, key, axis_name)
+   6067 else:
+   6068     keyarr, indexer, new_indexer = self._reindex_non_unique(keyarr)
+-> 6070 self._raise_if_missing(keyarr, indexer, axis_name)
+   6072 keyarr = self.take(indexer)
+   6073 if isinstance(key, Index):
+   6074     # GH 42790 - Preserve name from an Index
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\indexes\base.py:6133, in Index._raise_if_missing(self, key, indexer, axis_name)
+   6130     raise KeyError(f"None of [{key}] are in the [{axis_name}]")
+   6132 not_found = list(ensure_index(key)[missing_mask.nonzero()[0]].unique())
+-> 6133 raise KeyError(f"{not_found} not in index")
+
+KeyError: "['Season_3'] not in index"

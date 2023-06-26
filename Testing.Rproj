@@ -1,55 +1,10 @@
-import pandas as pd
-from statsmodels.tsa.statespace.sarimax import SARIMAX
-from sklearn.preprocessing import LabelEncoder
+---------------------------------------------------------------------------
+AttributeError                            Traceback (most recent call last)
+Cell In[17], line 30
+     27 df = pd.get_dummies(df, columns=['Season'], prefix='Season')
+     29 # Train-Test Split: Train on first 80%, predict on last 20%
+---> 30 mask = (df.index < df.index.quantile(0.8))
+     31 df_train = df.loc[mask]
+     32 df_test = df.loc[~mask]
 
-# Read dataset
-df = pd.read_csv('covers.csv')
-
-# First, ensure 'Date' and 'Hour' are in the right format
-df['Date'] = pd.to_datetime(df['Date'])
-df['Hour'] = pd.to_timedelta(df['Hour'].astype(str))
-
-# Combine 'Date' and 'Hour' into a new 'Datetime' column
-df['Datetime'] = df['Date'] + df['Hour']
-
-# Set 'Datetime' as the index
-df.set_index('Datetime', inplace=True)
-
-# Define the categorical columns
-cat_cols = ['is_Holiday', 'Special_Event', 'Season']
-
-# Apply Label Encoding for the categorical variables
-for col in cat_cols:
-    le = LabelEncoder()
-    df[col] = le.fit_transform(df[col])
-
-# Generate dummy variables for 'Season'
-df = pd.get_dummies(df, columns=['Season'], prefix='Season')
-
-# Train-Test Split: Train on first 80%, predict on last 20%
-mask = (df.index < df.index.quantile(0.8))
-df_train = df.loc[mask]
-df_test = df.loc[~mask]
-
-# Fit a SARIMAX model
-model = SARIMAX(df_train['Covers'], 
-       exog=df_train[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']],
-       order=(1, 0, 0), 
-       seasonal_order=(1, 0, 0, 12),
-       freq='H')
-results = model.fit()
-
-# Make future dataframe for prediction
-future_dates = pd.date_range(start=df_test.index[0], end=df_test.index[-1], freq='H')
-df_pred = pd.DataFrame(index=future_dates)
-df_pred.index.name = 'Datetime'
-
-# Fill the exogenous variable columns with appropriate values
-for col in ['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']:
-    if col in df_test.columns:
-        df_pred[col] = df_test[col]
-    else:
-        df_pred[col] = 0
-
-# Predict the covers
-df_pred['Covers'] = results.predict(start=df_pred.index[0], end=df_pred.index[-1], exog=df_pred[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']])
+AttributeError: 'DatetimeIndex' object has no attribute 'quantile'

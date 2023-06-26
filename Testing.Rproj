@@ -32,7 +32,7 @@ df_train, df_test=df.iloc[:train_size],df.iloc[train_size:]
 
 # Fit a SARIMAX model
 model = SARIMAX(df_train['Covers'], 
-       exog=df_train[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2']],
+       exog=df_train[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']],
        order=(1, 0, 0), 
        seasonal_order=(1, 0, 0, 12),
        freq='H')
@@ -44,7 +44,7 @@ df_pred = pd.DataFrame(index=future_dates)
 df_pred.index.name = 'Datetime'
 
 # Fill the exogenous variable columns with appropriate values
-for col in ['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2']:
+for col in ['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']:
     if col in df_test.columns:
         df_pred[col] = df_test[col]
     else:

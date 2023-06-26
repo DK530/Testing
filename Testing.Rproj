@@ -1,58 +1,60 @@
 ---------------------------------------------------------------------------
 ValueError                                Traceback (most recent call last)
-Cell In[21], line 34
-     31 df_train, df_test=df.iloc[:train_size],df.iloc[train_size:]
-     33 # Fit a SARIMAX model
----> 34 model = SARIMAX(df_train['Covers'], 
-     35        exog=df_train[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2']],
-     36        order=(1, 0, 0), 
-     37        seasonal_order=(1, 0, 0, 12),
-     38        freq='H')
-     39 results = model.fit()
-     41 # Make future dataframe for prediction
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:433, in pandas._libs.tslibs.timedeltas.array_to_timedelta64()
 
-File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\tsa\statespace\sarimax.py:328, in SARIMAX.__init__(self, endog, exog, order, seasonal_order, trend, measurement_error, time_varying_regression, mle_regression, simple_differencing, enforce_stationarity, enforce_invertibility, hamilton_representation, concentrate_scale, trend_offset, use_exact_diffuse, dates, freq, missing, validate_specification, **kwargs)
-    318 def __init__(self, endog, exog=None, order=(1, 0, 0),
-    319              seasonal_order=(0, 0, 0, 0), trend=None,
-    320              measurement_error=False, time_varying_regression=False,
-   (...)
-    325              freq=None, missing='none', validate_specification=True,
-    326              **kwargs):
---> 328     self._spec = SARIMAXSpecification(
-    329         endog, exog=exog, order=order, seasonal_order=seasonal_order,
-    330         trend=trend, enforce_stationarity=None, enforce_invertibility=None,
-    331         concentrate_scale=concentrate_scale, dates=dates, freq=freq,
-    332         missing=missing, validate_specification=validate_specification)
-    333     self._params = SARIMAXParams(self._spec)
-    335     # Save given orders
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:465, in pandas._libs.tslibs.timedeltas._item_to_timedelta64_fastpath()
 
-File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\tsa\arima\specification.py:446, in SARIMAXSpecification.__init__(self, endog, exog, order, seasonal_order, ar_order, diff, ma_order, seasonal_ar_order, seasonal_diff, seasonal_ma_order, seasonal_periods, trend, enforce_stationarity, enforce_invertibility, concentrate_scale, trend_offset, dates, freq, missing, validate_specification)
-    441         exog = np.c_[trend_data, exog]
-    443 # Create an underlying time series model, to handle endog / exog,
-    444 # especially validating shapes, retrieving names, and potentially
-    445 # providing us with a time series index
---> 446 self._model = TimeSeriesModel(endog, exog=exog, dates=dates, freq=freq,
-    447                               missing=missing)
-    448 self.endog = None if faux_endog else self._model.endog
-    449 self.exog = self._model.exog
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:521, in pandas._libs.tslibs.timedeltas.parse_timedelta_string()
 
-File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\tsa\base\tsa_model.py:471, in TimeSeriesModel.__init__(self, endog, exog, dates, freq, missing, **kwargs)
-    468 super().__init__(endog, exog, missing=missing, **kwargs)
-    470 # Date handling in indexes
---> 471 self._init_dates(dates, freq)
+ValueError: only leading negative signs are allowed
 
-File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\tsa\base\tsa_model.py:614, in TimeSeriesModel._init_dates(self, dates, freq)
-    610     resampled_index = date_range(
-    611         start=index[0], end=index[-1], freq=freq
-    612     )
-    613     if not inferred_freq and not resampled_index.equals(index):
---> 614         raise ValueError(
-    615             "The given frequency argument could"
-    616             " not be matched to the given index."
-    617         )
-    618     index = resampled_index
-    619 # Finally, if the index itself has a frequency and there was
-    620 # also a given frequency, raise an exception if they are not
-    621 # equal
+During handling of the above exception, another exception occurred:
 
-ValueError: The given frequency argument could not be matched to the given index.
+ValueError                                Traceback (most recent call last)
+Cell In[22], line 10
+      8 # First, ensure 'Date' and 'Hour' are in the right format
+      9 df['Date'] = pd.to_datetime(df['Date'])
+---> 10 df['Hour'] = pd.to_timedelta(df['Hour'].astype(str))
+     12 # Combine 'Date' and 'Hour' into a new 'Datetime' column
+     13 df['Datetime'] = df['Date'] + df['Hour']
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\tools\timedeltas.py:189, in to_timedelta(arg, unit, errors)
+    187     return arg
+    188 elif isinstance(arg, ABCSeries):
+--> 189     values = _convert_listlike(arg._values, unit=unit, errors=errors)
+    190     return arg._constructor(values, index=arg.index, name=arg.name)
+    191 elif isinstance(arg, ABCIndex):
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\tools\timedeltas.py:242, in _convert_listlike(arg, unit, errors, name)
+    239     arg = np.array(list(arg), dtype=object)
+    241 try:
+--> 242     td64arr = sequence_to_td64ns(arg, unit=unit, errors=errors, copy=False)[0]
+    243 except ValueError:
+    244     if errors == "ignore":
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\arrays\timedeltas.py:894, in sequence_to_td64ns(data, copy, unit, errors)
+    891 # Convert whatever we have into timedelta64[ns] dtype
+    892 if is_object_dtype(data.dtype) or is_string_dtype(data.dtype):
+    893     # no need to make a copy, need to convert if string-dtyped
+--> 894     data = _objects_to_td64ns(data, unit=unit, errors=errors)
+    895     copy = False
+    897 elif is_integer_dtype(data.dtype):
+    898     # treat as multiples of the given unit
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\arrays\timedeltas.py:1004, in _objects_to_td64ns(data, unit, errors)
+   1001 # coerce Index to np.ndarray, converting string-dtype if necessary
+   1002 values = np.array(data, dtype=np.object_, copy=False)
+-> 1004 result = array_to_timedelta64(values, unit=unit, errors=errors)
+   1005 return result.view("timedelta64[ns]")
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:447, in pandas._libs.tslibs.timedeltas.array_to_timedelta64()
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:482, in pandas._libs.tslibs.timedeltas._item_to_timedelta64()
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:473, in pandas._libs.tslibs.timedeltas._item_to_timedelta64()
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:356, in pandas._libs.tslibs.timedeltas.convert_to_timedelta64()
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:521, in pandas._libs.tslibs.timedeltas.parse_timedelta_string()
+
+ValueError: only leading negative signs are allowed

@@ -1,45 +1,55 @@
----------------------------------------------------------------------------
-KeyError                                  Traceback (most recent call last)
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\indexes\base.py:3802, in Index.get_loc(self, key, method, tolerance)
-   3801 try:
--> 3802     return self._engine.get_loc(casted_key)
-   3803 except KeyError as err:
+import pandas as pd
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from sklearn.preprocessing import LabelEncoder
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\index.pyx:138, in pandas._libs.index.IndexEngine.get_loc()
+# Read dataset
+df = pd.read_csv('covers.csv')
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\index.pyx:165, in pandas._libs.index.IndexEngine.get_loc()
+# First, ensure 'Date' and 'Hour' are in the right format
+df['Date'] = pd.to_datetime(df['Date'])
+df['Hour'] = pd.to_timedelta(df['Hour'].astype(str))
 
-File pandas\_libs\hashtable_class_helper.pxi:5745, in pandas._libs.hashtable.PyObjectHashTable.get_item()
+# Combine 'Date' and 'Hour' into a new 'Datetime' column
+df['Datetime'] = df['Date'] + df['Hour']
 
-File pandas\_libs\hashtable_class_helper.pxi:5753, in pandas._libs.hashtable.PyObjectHashTable.get_item()
+# Set 'Datetime' as the index
+df.set_index('Datetime', inplace=True)
 
-KeyError: 'Datetime'
+# Define the categorical columns
+cat_cols = ['is_Holiday', 'Special_Event', 'Season']
 
-The above exception was the direct cause of the following exception:
+# Apply Label Encoding for the categorical variables
+for col in cat_cols:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col])
 
-KeyError                                  Traceback (most recent call last)
-Cell In[16], line 9
-      6 df = pd.read_excel("G:\FP&A\PLANNING\Labor Project\Project - Demetris\Dataset 1.0.xlsx")
-      8 # Convert 'Datetime' to datetime object
-----> 9 df['Datetime'] = pd.to_datetime(df['Datetime'])
-     11 # Set 'Datetime' as the index
-     12 df.set_index('Datetime', inplace=True)
+# Generate dummy variables for 'Season'
+df = pd.get_dummies(df, columns=['Season'], prefix='Season')
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\frame.py:3807, in DataFrame.__getitem__(self, key)
-   3805 if self.columns.nlevels > 1:
-   3806     return self._getitem_multilevel(key)
--> 3807 indexer = self.columns.get_loc(key)
-   3808 if is_integer(indexer):
-   3809     indexer = [indexer]
+# Train-Test Split: Train on first 80%, predict on last 20%
+mask = (df.index < df.index.quantile(0.8))
+df_train = df.loc[mask]
+df_test = df.loc[~mask]
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\indexes\base.py:3804, in Index.get_loc(self, key, method, tolerance)
-   3802     return self._engine.get_loc(casted_key)
-   3803 except KeyError as err:
--> 3804     raise KeyError(key) from err
-   3805 except TypeError:
-   3806     # If we have a listlike key, _check_indexing_error will raise
-   3807     #  InvalidIndexError. Otherwise we fall through and re-raise
-   3808     #  the TypeError.
-   3809     self._check_indexing_error(key)
+# Fit a SARIMAX model
+model = SARIMAX(df_train['Covers'], 
+       exog=df_train[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']],
+       order=(1, 0, 0), 
+       seasonal_order=(1, 0, 0, 12),
+       freq='H')
+results = model.fit()
 
-KeyError: 'Datetime'
+# Make future dataframe for prediction
+future_dates = pd.date_range(start=df_test.index[0], end=df_test.index[-1], freq='H')
+df_pred = pd.DataFrame(index=future_dates)
+df_pred.index.name = 'Datetime'
+
+# Fill the exogenous variable columns with appropriate values
+for col in ['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']:
+    if col in df_test.columns:
+        df_pred[col] = df_test[col]
+    else:
+        df_pred[col] = 0
+
+# Predict the covers
+df_pred['Covers'] = results.predict(start=df_pred.index[0], end=df_pred.index[-1], exog=df_pred[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']])

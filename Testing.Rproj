@@ -1,4 +1,4 @@
---------------------------------------------------------------------------
+---------------------------------------------------------------------------
 KeyError                                  Traceback (most recent call last)
 File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\indexes\base.py:3802, in Index.get_loc(self, key, method, tolerance)
    3801 try:
@@ -43,31 +43,3 @@ File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\indexes\base.py:380
    3809     self._check_indexing_error(key)
 
 KeyError: 'Datetime'
-   1656         raise ValueError(
-   1657             "Excel file format cannot be determined, you must specify "
-   1658             "an engine manually."
-   1659         )
-
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\io\excel\_base.py:1525, in inspect_excel_format(content_or_path, storage_options)
-   1522 if isinstance(content_or_path, bytes):
-   1523     content_or_path = BytesIO(content_or_path)
--> 1525 with get_handle(
-   1526     content_or_path, "rb", storage_options=storage_options, is_text=False
-   1527 ) as handle:
-   1528     stream = handle.handle
-   1529     stream.seek(0)
-
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\io\common.py:865, in get_handle(path_or_buf, mode, encoding, compression, memory_map, is_text, errors, storage_options)
-    856         handle = open(
-    857             handle,
-    858             ioargs.mode,
-   (...)
-    861             newline="",
-    862         )
-    863     else:
-    864         # Binary mode
---> 865         handle = open(handle, ioargs.mode)
-    866     handles.append(handle)
-    868 # Convert BytesIO or file objects passed with an encoding
-
-FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\1001437\\Desktop\\Project Runaway\\Dataset 1.0 - Shortcut.xlsx'

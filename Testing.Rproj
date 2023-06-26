@@ -1,4 +1,45 @@
-df['Hour'] = df['Hour'].astype(str)
-df['Hour'] = df['Hour'].str.split(':').apply(lambda x: int(x[0]) + int(x[1])/60)
-df['Hour'] = pd.to_timedelta(df['Hour'], unit='h')
-df['Datetime'] = df['Date'] + df['Hour']
+import pandas as pd
+import numpy as np
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from datetime import datetime, time
+
+# Import your data
+df = pd.read_excel("file_path.xlsx")
+
+# Convert 'Date' column to pandas datetime format
+df['Date'] = pd.to_datetime(df['Date'], format='%d-%b')
+
+# Convert 'Operating Hour Start', 'Operating Hour End' and 'Hour' columns to pandas time format
+time_columns = ['Operating Hour Start', 'Operating Hour End', 'Hour']
+for column in time_columns:
+    df[column] = pd.to_datetime(df[column], format='%H:%M:%S').dt.time
+
+# Combine 'Date' and 'Hour' into a single datetime column
+df['Datetime'] = df.apply(lambda row: datetime.combine(row['Date'], row['Hour']), axis=1)
+
+# Create dummy variables for the 'Season' categorical data
+df = pd.get_dummies(df, columns=["Season"], prefix=["Season"])
+
+# Check your dataframe
+print(df.head())
+
+# Split data into training and test sets
+mask = (df['Datetime'] < '2023-01-01')
+df_train = df.loc[mask]
+df_test = df.loc[~mask]
+
+# Fit a SARIMAX model
+model = SARIMAX(df_train['Covers'], 
+                exog=df_train[['is_Holiday', 'Special_Event'] + [col for col in df.columns if 'Season' in col]],
+                order=(1, 0, 0), 
+                seasonal_order=(1, 0, 0, 12),
+                freq='H')
+
+results = model.fit()
+
+# Make predictions
+df_test['Predicted_Covers'] = results.predict(start=df_test.index[0], end=df_test.index[-1],
+                                              exog=df_test[['is_Holiday', 'Special_Event'] + [col for col in df.columns if 'Season' in col]])
+
+# Check the results
+print(df_test[['Datetime', 'Covers', 'Predicted_Covers']].head())

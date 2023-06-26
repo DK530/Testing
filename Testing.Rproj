@@ -1,45 +1,48 @@
 import pandas as pd
-import numpy as np
 from statsmodels.tsa.statespace.sarimax import SARIMAX
-from datetime import datetime, time
+from datetime import datetime, timedelta
 
-# Import your data
-df = pd.read_excel("file_path.xlsx")
+# Load your data
+df = pd.read_excel('your_data_file.xlsx')  # Replace 'your_data_file.xlsx' with your actual file path
 
-# Convert 'Date' column to pandas datetime format
-df['Date'] = pd.to_datetime(df['Date'], format='%d-%b')
-
-# Convert 'Operating Hour Start', 'Operating Hour End' and 'Hour' columns to pandas time format
-time_columns = ['Operating Hour Start', 'Operating Hour End', 'Hour']
-for column in time_columns:
-    df[column] = pd.to_datetime(df[column], format='%H:%M:%S').dt.time
+# Convert 'Date' and 'Hour' into datetime
+df['Date'] = pd.to_datetime(df['Date'])
+df['Hour'] = pd.to_datetime(df['Hour'], format='%H:%M:%S').dt.time
 
 # Combine 'Date' and 'Hour' into a single datetime column
 df['Datetime'] = df.apply(lambda row: datetime.combine(row['Date'], row['Hour']), axis=1)
 
+# Set 'Datetime' as index
+df.set_index('Datetime', inplace=True)
+
+# Choose relevant columns
+df = df[['Covers', 'Season', 'is_Holiday', 'Special_Event']]
+
 # Create dummy variables for the 'Season' categorical data
 df = pd.get_dummies(df, columns=["Season"], prefix=["Season"])
 
-# Check your dataframe
-print(df.head())
+# Fit the model
+model = SARIMAX(df['Covers'], exog=df.drop('Covers', axis=1), order=(1, 0, 1), seasonal_order=(1, 0, 1, 12))
+model_fit = model.fit(disp=False)
 
-# Split data into training and test sets
-mask = (df['Datetime'] < '2023-01-01')
-df_train = df.loc[mask]
-df_test = df.loc[~mask]
+# Now load the future data
+future_df = pd.read_excel('future_data_file.xlsx')  # Replace 'future_data_file.xlsx' with your actual file path
 
-# Fit a SARIMAX model
-model = SARIMAX(df_train['Covers'], 
-                exog=df_train[['is_Holiday', 'Special_Event'] + [col for col in df.columns if 'Season' in col]],
-                order=(1, 0, 0), 
-                seasonal_order=(1, 0, 0, 12),
-                freq='H')
+# Convert 'Date' and 'Hour' into datetime
+future_df['Date'] = pd.to_datetime(future_df['Date'])
+future_df['Hour'] = pd.to_datetime(future_df['Hour'], format='%H:%M:%S').dt.time
 
-results = model.fit()
+# Combine 'Date' and 'Hour' into a single datetime column
+future_df['Datetime'] = future_df.apply(lambda row: datetime.combine(row['Date'], row['Hour']), axis=1)
 
-# Make predictions
-df_test['Predicted_Covers'] = results.predict(start=df_test.index[0], end=df_test.index[-1],
-                                              exog=df_test[['is_Holiday', 'Special_Event'] + [col for col in df.columns if 'Season' in col]])
+# Set 'Datetime' as index
+future_df.set_index('Datetime', inplace=True)
 
-# Check the results
-print(df_test[['Datetime', 'Covers', 'Predicted_Covers']].head())
+# Choose relevant columns and create dummy variables
+future_df = future_df[['Season', 'is_Holiday', 'Special_Event']]
+future_df = pd.get_dummies(future_df, columns=["Season"], prefix=["Season"])
+
+# Generate 90 days predictions
+predictions = model_fit.get_forecast(steps=90, exog=future_df).predicted_mean
+
+print(predictions)

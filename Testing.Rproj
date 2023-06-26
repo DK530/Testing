@@ -1,43 +1,48 @@
----------------------------------------------------------------------------
-FileNotFoundError                         Traceback (most recent call last)
-Cell In[15], line 6
-      3 from sklearn.preprocessing import LabelEncoder
-      5 # Read dataset
-----> 6 df = pd.read_excel("C:\\Users\\1001437\\Desktop\\Project Runaway\\Dataset 1.0 - Shortcut.xlsx")
+--------------------------------------------------------------------------
+KeyError                                  Traceback (most recent call last)
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\indexes\base.py:3802, in Index.get_loc(self, key, method, tolerance)
+   3801 try:
+-> 3802     return self._engine.get_loc(casted_key)
+   3803 except KeyError as err:
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\index.pyx:138, in pandas._libs.index.IndexEngine.get_loc()
+
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\index.pyx:165, in pandas._libs.index.IndexEngine.get_loc()
+
+File pandas\_libs\hashtable_class_helper.pxi:5745, in pandas._libs.hashtable.PyObjectHashTable.get_item()
+
+File pandas\_libs\hashtable_class_helper.pxi:5753, in pandas._libs.hashtable.PyObjectHashTable.get_item()
+
+KeyError: 'Datetime'
+
+The above exception was the direct cause of the following exception:
+
+KeyError                                  Traceback (most recent call last)
+Cell In[16], line 9
+      6 df = pd.read_excel("G:\FP&A\PLANNING\Labor Project\Project - Demetris\Dataset 1.0.xlsx")
       8 # Convert 'Datetime' to datetime object
-      9 df['Datetime'] = pd.to_datetime(df['Datetime'])
+----> 9 df['Datetime'] = pd.to_datetime(df['Datetime'])
+     11 # Set 'Datetime' as the index
+     12 df.set_index('Datetime', inplace=True)
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\util\_decorators.py:211, in deprecate_kwarg.<locals>._deprecate_kwarg.<locals>.wrapper(*args, **kwargs)
-    209     else:
-    210         kwargs[new_arg_name] = new_arg_value
---> 211 return func(*args, **kwargs)
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\frame.py:3807, in DataFrame.__getitem__(self, key)
+   3805 if self.columns.nlevels > 1:
+   3806     return self._getitem_multilevel(key)
+-> 3807 indexer = self.columns.get_loc(key)
+   3808 if is_integer(indexer):
+   3809     indexer = [indexer]
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\util\_decorators.py:331, in deprecate_nonkeyword_arguments.<locals>.decorate.<locals>.wrapper(*args, **kwargs)
-    325 if len(args) > num_allow_args:
-    326     warnings.warn(
-    327         msg.format(arguments=_format_argument_list(allow_args)),
-    328         FutureWarning,
-    329         stacklevel=find_stack_level(),
-    330     )
---> 331 return func(*args, **kwargs)
+File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\indexes\base.py:3804, in Index.get_loc(self, key, method, tolerance)
+   3802     return self._engine.get_loc(casted_key)
+   3803 except KeyError as err:
+-> 3804     raise KeyError(key) from err
+   3805 except TypeError:
+   3806     # If we have a listlike key, _check_indexing_error will raise
+   3807     #  InvalidIndexError. Otherwise we fall through and re-raise
+   3808     #  the TypeError.
+   3809     self._check_indexing_error(key)
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\io\excel\_base.py:482, in read_excel(io, sheet_name, header, names, index_col, usecols, squeeze, dtype, engine, converters, true_values, false_values, skiprows, nrows, na_values, keep_default_na, na_filter, verbose, parse_dates, date_parser, thousands, decimal, comment, skipfooter, convert_float, mangle_dupe_cols, storage_options)
-    480 if not isinstance(io, ExcelFile):
-    481     should_close = True
---> 482     io = ExcelFile(io, storage_options=storage_options, engine=engine)
-    483 elif engine and engine != io.engine:
-    484     raise ValueError(
-    485         "Engine should not be specified when passing "
-    486         "an ExcelFile - ExcelFile already has the engine set"
-    487     )
-
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\io\excel\_base.py:1652, in ExcelFile.__init__(self, path_or_buffer, engine, storage_options)
-   1650     ext = "xls"
-   1651 else:
--> 1652     ext = inspect_excel_format(
-   1653         content_or_path=path_or_buffer, storage_options=storage_options
-   1654     )
-   1655     if ext is None:
+KeyError: 'Datetime'
    1656         raise ValueError(
    1657             "Excel file format cannot be determined, you must specify "
    1658             "an engine manually."

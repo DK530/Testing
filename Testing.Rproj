@@ -1,34 +1,58 @@
 ---------------------------------------------------------------------------
-KeyError                                  Traceback (most recent call last)
-Cell In[20], line 35
+ValueError                                Traceback (most recent call last)
+Cell In[21], line 34
      31 df_train, df_test=df.iloc[:train_size],df.iloc[train_size:]
      33 # Fit a SARIMAX model
-     34 model = SARIMAX(df_train['Covers'], 
----> 35        exog=df_train[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']],
+---> 34 model = SARIMAX(df_train['Covers'], 
+     35        exog=df_train[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2']],
      36        order=(1, 0, 0), 
      37        seasonal_order=(1, 0, 0, 12),
      38        freq='H')
      39 results = model.fit()
      41 # Make future dataframe for prediction
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\frame.py:3813, in DataFrame.__getitem__(self, key)
-   3811     if is_iterator(key):
-   3812         key = list(key)
--> 3813     indexer = self.columns._get_indexer_strict(key, "columns")[1]
-   3815 # take() does not accept boolean indexers
-   3816 if getattr(indexer, "dtype", None) == bool:
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\tsa\statespace\sarimax.py:328, in SARIMAX.__init__(self, endog, exog, order, seasonal_order, trend, measurement_error, time_varying_regression, mle_regression, simple_differencing, enforce_stationarity, enforce_invertibility, hamilton_representation, concentrate_scale, trend_offset, use_exact_diffuse, dates, freq, missing, validate_specification, **kwargs)
+    318 def __init__(self, endog, exog=None, order=(1, 0, 0),
+    319              seasonal_order=(0, 0, 0, 0), trend=None,
+    320              measurement_error=False, time_varying_regression=False,
+   (...)
+    325              freq=None, missing='none', validate_specification=True,
+    326              **kwargs):
+--> 328     self._spec = SARIMAXSpecification(
+    329         endog, exog=exog, order=order, seasonal_order=seasonal_order,
+    330         trend=trend, enforce_stationarity=None, enforce_invertibility=None,
+    331         concentrate_scale=concentrate_scale, dates=dates, freq=freq,
+    332         missing=missing, validate_specification=validate_specification)
+    333     self._params = SARIMAXParams(self._spec)
+    335     # Save given orders
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\indexes\base.py:6070, in Index._get_indexer_strict(self, key, axis_name)
-   6067 else:
-   6068     keyarr, indexer, new_indexer = self._reindex_non_unique(keyarr)
--> 6070 self._raise_if_missing(keyarr, indexer, axis_name)
-   6072 keyarr = self.take(indexer)
-   6073 if isinstance(key, Index):
-   6074     # GH 42790 - Preserve name from an Index
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\tsa\arima\specification.py:446, in SARIMAXSpecification.__init__(self, endog, exog, order, seasonal_order, ar_order, diff, ma_order, seasonal_ar_order, seasonal_diff, seasonal_ma_order, seasonal_periods, trend, enforce_stationarity, enforce_invertibility, concentrate_scale, trend_offset, dates, freq, missing, validate_specification)
+    441         exog = np.c_[trend_data, exog]
+    443 # Create an underlying time series model, to handle endog / exog,
+    444 # especially validating shapes, retrieving names, and potentially
+    445 # providing us with a time series index
+--> 446 self._model = TimeSeriesModel(endog, exog=exog, dates=dates, freq=freq,
+    447                               missing=missing)
+    448 self.endog = None if faux_endog else self._model.endog
+    449 self.exog = self._model.exog
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\indexes\base.py:6133, in Index._raise_if_missing(self, key, indexer, axis_name)
-   6130     raise KeyError(f"None of [{key}] are in the [{axis_name}]")
-   6132 not_found = list(ensure_index(key)[missing_mask.nonzero()[0]].unique())
--> 6133 raise KeyError(f"{not_found} not in index")
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\tsa\base\tsa_model.py:471, in TimeSeriesModel.__init__(self, endog, exog, dates, freq, missing, **kwargs)
+    468 super().__init__(endog, exog, missing=missing, **kwargs)
+    470 # Date handling in indexes
+--> 471 self._init_dates(dates, freq)
 
-KeyError: "['Season_3'] not in index"
+File ~\AppData\Local\anaconda3\lib\site-packages\statsmodels\tsa\base\tsa_model.py:614, in TimeSeriesModel._init_dates(self, dates, freq)
+    610     resampled_index = date_range(
+    611         start=index[0], end=index[-1], freq=freq
+    612     )
+    613     if not inferred_freq and not resampled_index.equals(index):
+--> 614         raise ValueError(
+    615             "The given frequency argument could"
+    616             " not be matched to the given index."
+    617         )
+    618     index = resampled_index
+    619 # Finally, if the index itself has a frequency and there was
+    620 # also a given frequency, raise an exception if they are not
+    621 # equal
+
+ValueError: The given frequency argument could not be matched to the given index.

@@ -1,60 +1,54 @@
----------------------------------------------------------------------------
-ValueError                                Traceback (most recent call last)
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:433, in pandas._libs.tslibs.timedeltas.array_to_timedelta64()
+import pandas as pd
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from sklearn.preprocessing import LabelEncoder
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:465, in pandas._libs.tslibs.timedeltas._item_to_timedelta64_fastpath()
+# Read dataset
+df = pd.read_excel("G:\FP&A\PLANNING\Labor Project\Project - Demetris\Dataset 1.0.xlsx")
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:521, in pandas._libs.tslibs.timedeltas.parse_timedelta_string()
+# First, ensure 'Date' and 'Hour' are in the right format
+df['Date'] = pd.to_datetime(df['Date'])
+df['Hour'] = pd.to_timedelta(df['Hour'], unit='h')
 
-ValueError: only leading negative signs are allowed
+# Combine 'Date' and 'Hour' into a new 'Datetime' column
+df['Datetime'] = df['Date'] + df['Hour']
 
-During handling of the above exception, another exception occurred:
+# Set 'Datetime' as the index
+df.set_index('Datetime', inplace=True)
 
-ValueError                                Traceback (most recent call last)
-Cell In[22], line 10
-      8 # First, ensure 'Date' and 'Hour' are in the right format
-      9 df['Date'] = pd.to_datetime(df['Date'])
----> 10 df['Hour'] = pd.to_timedelta(df['Hour'].astype(str))
-     12 # Combine 'Date' and 'Hour' into a new 'Datetime' column
-     13 df['Datetime'] = df['Date'] + df['Hour']
+# Define the categorical columns
+cat_cols = ['is_Holiday', 'Special_Event', 'Season']
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\tools\timedeltas.py:189, in to_timedelta(arg, unit, errors)
-    187     return arg
-    188 elif isinstance(arg, ABCSeries):
---> 189     values = _convert_listlike(arg._values, unit=unit, errors=errors)
-    190     return arg._constructor(values, index=arg.index, name=arg.name)
-    191 elif isinstance(arg, ABCIndex):
+# Apply Label Encoding for the categorical variables
+for col in cat_cols:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col])
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\tools\timedeltas.py:242, in _convert_listlike(arg, unit, errors, name)
-    239     arg = np.array(list(arg), dtype=object)
-    241 try:
---> 242     td64arr = sequence_to_td64ns(arg, unit=unit, errors=errors, copy=False)[0]
-    243 except ValueError:
-    244     if errors == "ignore":
+# Generate dummy variables for 'Season'
+df = pd.get_dummies(df, columns=['Season'], prefix='Season')
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\arrays\timedeltas.py:894, in sequence_to_td64ns(data, copy, unit, errors)
-    891 # Convert whatever we have into timedelta64[ns] dtype
-    892 if is_object_dtype(data.dtype) or is_string_dtype(data.dtype):
-    893     # no need to make a copy, need to convert if string-dtyped
---> 894     data = _objects_to_td64ns(data, unit=unit, errors=errors)
-    895     copy = False
-    897 elif is_integer_dtype(data.dtype):
-    898     # treat as multiples of the given unit
+# Train-Test Split: Train on first 80%, predict on last 20%
+train_size=int(len(df)*0.8)
+df_train, df_test=df.iloc[:train_size],df.iloc[train_size:]
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\core\arrays\timedeltas.py:1004, in _objects_to_td64ns(data, unit, errors)
-   1001 # coerce Index to np.ndarray, converting string-dtype if necessary
-   1002 values = np.array(data, dtype=np.object_, copy=False)
--> 1004 result = array_to_timedelta64(values, unit=unit, errors=errors)
-   1005 return result.view("timedelta64[ns]")
+# Fit a SARIMAX model
+model = SARIMAX(df_train['Covers'], 
+       exog=df_train[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2']],
+       order=(1, 0, 0), 
+       seasonal_order=(1, 0, 0, 12),
+       freq='H')
+results = model.fit()
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:447, in pandas._libs.tslibs.timedeltas.array_to_timedelta64()
+# Make future dataframe for prediction
+future_dates = pd.date_range(start=df_test.index[0], end=df_test.index[-1], freq='H')
+df_pred = pd.DataFrame(index=future_dates)
+df_pred.index.name = 'Datetime'
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:482, in pandas._libs.tslibs.timedeltas._item_to_timedelta64()
+# Fill the exogenous variable columns with appropriate values
+for col in ['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2']:
+    if col in df_test.columns:
+        df_pred[col] = df_test[col]
+    else:
+        df_pred[col] = 0
 
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:473, in pandas._libs.tslibs.timedeltas._item_to_timedelta64()
-
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:356, in pandas._libs.tslibs.timedeltas.convert_to_timedelta64()
-
-File ~\AppData\Local\anaconda3\lib\site-packages\pandas\_libs\tslibs\timedeltas.pyx:521, in pandas._libs.tslibs.timedeltas.parse_timedelta_string()
-
-ValueError: only leading negative signs are allowed
+# Predict the covers
+df_pred['Covers'] = results.predict(start=df_pred.index[0], end=df_pred.index[-1], exog=df_pred[['is_Holiday', 'Special_Event', 'Season_0', 'Season_1', 'Season_2', 'Season_3']])
